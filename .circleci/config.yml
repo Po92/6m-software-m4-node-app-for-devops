@@ -5,7 +5,8 @@ orbs:
   heroku: circleci/heroku@2.0.0
 
 jobs:
-  build-and-test:
+  # ... other jobs
+  publish:
     docker:
       - image: cimg/node:16.10
     steps:
@@ -13,12 +14,12 @@ jobs:
       - node/install-packages:
           pkg-manager: npm
       - run:
-          name: Run tests
-          command: npm run test
-      - persist_to_workspace:
-          root: .
-          paths:
-            - .
+          name: Docker Login
+          command: echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_LOGIN --password-stdin
+      - docker/build:
+          image: po92/test_repository
+      - docker/push:
+          image: po92/test_repository
 
   publish:
     docker:
