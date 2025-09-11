@@ -3,50 +3,42 @@ orbs:
   node: circleci/node@5.0.1
   docker: circleci/docker@2.1.4
   heroku: circleci/heroku@2.0.0
+
 jobs:
-  build:
+  build-and-test:
     docker:
       - image: cimg/node:16.10
     steps:
       - checkout
       - node/install-packages:
           pkg-manager: npm
-      - run: |
-          echo "Installing dependencies..."
-          npm install
-  test:
-    docker:
-      - image: cimg/node:16.10
-    steps:
-      - checkout
-      - node/install-packages:
-          pkg-manager: npm
-      - run: |
-          echo "Running tests..."
-          npm run test
-  
+      - run:
+          name: Run tests
+          command: npm run test
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+
   publish:
-    executor: docker/docker
+    docker:
+      - image: cimg/node:16.10
     steps:
-      - setup_remote_docker
       - checkout
       - node/install-packages:
           pkg-manager: npm
-      - run: |
-          echo "Running tests..."
-          npm run test
       - docker/check:
-          docker-username: DOCKERHUB_LOGIN  # DOCKER_LOGIN is the default value, if it exists, it automatically would be used.
-          docker-password: DOCKERHUB_PASSWORD  # DOCKER_PASSWORD is the default value
+          docker-username: DOCKERHUB_LOGIN
+          docker-password: DOCKERHUB_PASSWORD
       - docker/build:
           image: po92/test_repository
       - docker/push:
           image: po92/test_repository
+      
   deploy:
     docker:
       - image: cimg/node:16.10
     steps:
-      - setup_remote_docker      
       - heroku/install
       - checkout
       - run:
@@ -60,13 +52,10 @@ jobs:
 workflows:
   simple_workflow:
     jobs:
-      - build
-      - test:
-          requires:
-            - build
+      - build-and-test
       - publish:
           requires:
-            - test
+            - build-and-test
       - deploy:
           requires:
             - publish
