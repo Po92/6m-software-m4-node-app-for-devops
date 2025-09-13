@@ -28,6 +28,10 @@ jobs:
           at: .
       - run:
           name: Docker Login
+      - setup_remote_docker
+      - docker/check:
+          docker-username: DOCKER_LOGIN
+          docker-password: DOCKER_PASSWORD
           command: echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_LOGIN --password-stdin
       - docker/build:
           image: po92/test_repository
