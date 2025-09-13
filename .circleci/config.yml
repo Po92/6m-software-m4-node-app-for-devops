@@ -1,6 +1,7 @@
 version: 2.1
+
 orbs:
-  node: circleci/node@5.0.1
+  node: circleci/node@7.1.1
   docker: circleci/docker@2.1.4
   heroku: circleci/heroku@2.0.0
 
@@ -33,7 +34,7 @@ jobs:
           image: po92/test_repository
       - docker/push:
           image: po92/test_repository
-      
+
   deploy:
     docker:
       - image: cimg/node:16.10
@@ -42,11 +43,11 @@ jobs:
       - checkout
       - run:
           name: Heroku Container Push
-          command: | 
-              heroku container:login
-              heroku stack:set container -a shennan-su-devops
-              heroku container:push web -a shennan-su-devops
-              heroku container:release web -a shennan-su-devops
+          command: |
+            heroku container:login
+            heroku stack:set container -a shennan-su-devops
+            heroku container:push web -a shennan-su-devops
+            heroku container:release web -a shennan-su-devops
 
 workflows:
   simple_workflow:
