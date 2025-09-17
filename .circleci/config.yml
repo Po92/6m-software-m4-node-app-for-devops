@@ -5,16 +5,6 @@ orbs:
   heroku: circleci/heroku@2.0.0
 
 jobs:
-  build:
-    docker:
-      - image: cimg/node:16.10
-    steps:
-      - checkout
-      - node/install-packages:
-          pkg-manager: npm
-      - run: |
-          echo "Installing dependencies..."
-          npm install
   test:
     docker:
       - image: cimg/node:16.10
@@ -26,11 +16,13 @@ jobs:
           echo "Running tests..."
           npm run test
   
-  publish:
+  build-and-push:
+    docker:
+      - image: cimg/node:16.10
     executor: docker/docker
     steps:
-      - setup_remote_docker
       - checkout
+      - setup_remote_docker
       - docker/check:
           docker-username: DOCKERHUB_LOGIN
           docker-password: DOCKERHUB_PASSWORD
@@ -38,6 +30,7 @@ jobs:
           image: wongshennan/test_repository
       - docker/push:
           image: wongshennan/test_repository
+  
   deploy:
     docker:
       - image: cimg/node:16.10
@@ -56,30 +49,18 @@ jobs:
 workflows:
   ci_workflow:
     jobs:
-      - build:
-          filters:
-            branches:
-              only: main
       - test:
-          requires:
-            - build
           filters:
             branches:
               only: main
 
   full_ci_cd_workflow:
     jobs:
-      - build:
-          filters:
-            branches:
-              only: release
       - test:
-          requires:
-            - build
           filters:
             branches:
               only: release
-      - publish:
+      - build-and-push:
           requires:
             - test
           filters:
@@ -87,7 +68,7 @@ workflows:
               only: release
       - deploy:
           requires:
-            - publish
+            - build-and-push
           filters:
             branches:
               only: release
