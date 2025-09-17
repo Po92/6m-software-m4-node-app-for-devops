@@ -25,6 +25,7 @@ jobs:
     steps:
       - attach_workspace:
           at: .
+      - setup_remote_docker
       - run:
           name: Docker Login
           command: echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_LOGIN --password-stdin
