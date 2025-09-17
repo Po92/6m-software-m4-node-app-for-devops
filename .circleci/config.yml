@@ -1,61 +1,141 @@
+# This file tells CircleCI what to do
 version: 2.1
-
 orbs:
-  node: circleci/node@7.1.1
+  node: circleci/node@5.0.1
   docker: circleci/docker@2.1.4
-  heroku: circleci/heroku@2.0.0
 
-jobs:
-  build-and-test:
-    docker:
-      - image: cimg/node:16.10
+# commands - reusable sets of steps
+commands:
+  install_deps:
     steps:
       - checkout
       - node/install-packages:
           pkg-manager: npm
-      - run:
-          name: Run tests
-          command: npm run test
-      - persist_to_workspace:
-          root: .
-          paths:
-            - .
 
-  publish:
+# Each job has 2 parts - 1. Executor, 2. Steps
+jobs:
+  build:
+    # Means spin up a container using node:16.10 and run the steps
     docker:
       - image: cimg/node:16.10
     steps:
-      - attach_workspace:
-          at: .
-      - docker/login:
-          username: $DOCKERHUB_LOGIN
-          password: $DOCKERHUB_PASSWORD
-      - docker/build:
-          image: po92/test_repository
-      - docker/push:
-          image: po92/test_repository
+      - checkout
+      # Using node/install-packages is better than npm install
+      # because it gives you CircleCI optimization (caching, lockfile, concise)
+      - node/install-packages:
+          pkg-manager: npm
+      # Without orbs, we have to run everything manually using run
+      # - run: |
+      #     echo "Installing dependencies"
+      #     npm install
+  test:
+    docker:
+      - image: cimg/node:16.10
+    steps:
+      - install_deps
+      # - checkout
+      # - node/install-packages:
+      #     pkg-manager: npm
+      # - run: |
+      #     echo "Running tests..."
+      #     npm run test
 
+  scan:
+    docker:
+      - image: cimg/node:16.10
+    environment:
+      IMAGE_NAME: nzj002/node-app-test-repository
+    steps:
+      - checkout
+      - setup_remote_docker
+      - docker/check:
+          docker-username: DOCKERHUB_LOGIN
+          docker-password: DOCKERHUB_PASSWORD
+      - run: docker build -t $IMAGE_NAME .
+
+  publish:
+    # CircleCI provides a special executor that allows Docker-in-Docker
+    # so that you run docker build, push, etc
+    executor: docker/docker
+    steps:
+      - setup_remote_docker
+      - checkout
+      # docker/check does 3 things
+      # 1. Verifies Docker is working
+      # 2. Authenticates with Docker Hub using your credentials
+      # 3. Sets up Docker client for operations
+      # Ensure that DOCKER_LOGIN and DOCKER_PASSWORD in CircleCI Project Settings
+      # Without this, we have manually run `docker login`
+      - docker/check:
+          # Use Docker orb to build and push images
+          docker-username: DOCKERHUB_LOGIN
+          docker-password: DOCKERHUB_PASSWORD
+      - docker/build:
+          image: nzj002/node-app-test-repository
+          # tag with current git revision (commit hash) and latest tag
+          tag: << pipeline.git.revision >>,latest
+      - docker/push:
+          image: nzj002/node-app-test-repository
+          tag: << pipeline.git.revision >>,latest
   deploy:
     docker:
       - image: cimg/node:16.10
     steps:
-      - heroku/install
+      - setup_remote_docker
       - checkout
-      - run:
-          name: Heroku Container Push
-          command: |
-            heroku container:login
-            heroku stack:set container -a shennan-su-devops
-            heroku container:push web -a shennan-su-devops
-            heroku container:release web -a shennan-su-devops
-
+      - docker/check:
+          docker-username: DOCKERHUB_LOGIN
+          docker-password: DOCKERHUB_PASSWORD
+# Define the workflow for job execution order
 workflows:
-  simple_workflow:
+  simple_workflow_main:
     jobs:
-      - build-and-test
+      - build:
+          filters:
+            branches:
+              only: main
+      - test: # Run test job after build
+          requires:
+            - build
+          filters:
+            branches:
+              only: main
+      # The scan job
+      - scan:
+          requires:
+            - build
+          filters:
+            branches:
+              only: main
+
+  simple_workflow_release::
+    jobs:
+      - build:
+          filters:
+            branches:
+              only: release
+      - test: # Run test job after build
+          requires:
+            - build
+          filters:
+            branches:
+              only: release
+      # The scan job
+      - scan:
+          requires:
+            - build
+          filters:
+            branches:
+              only: main
       - publish:
           requires:
-            - build-and-test
+            - test
+          filters:
+            branches:
+              only: release
       - deploy:
           requires:
             - publish
+          filters:
+            branches:
+              only: release
