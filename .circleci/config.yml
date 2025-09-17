@@ -2,10 +2,9 @@ version: 2.1
 orbs:
   node: circleci/node@5.0.1
   docker: circleci/docker@2.1.4
-  heroku: circleci/heroku@2.0.0
 
 jobs:
-  build:
+  test:
     docker:
       - image: cimg/node:16.10
     steps:
@@ -13,29 +12,14 @@ jobs:
       - node/install-packages:
           pkg-manager: npm
       - run: |
-          echo "Installing dependencies..."
-          npm install
-      - persist_to_workspace:
-          root: .
-          paths:
-            - .
-
-  test:
-    docker:
-      - image: cimg/node:16.10
-    steps:
-      - attach_workspace:
-          at: .
-      - run: |
           echo "Running tests..."
           npm run test
   
-  publish:
+  build-and-push:
     executor: docker/docker
     steps:
-      - attach_workspace:
-          at: .
       - setup_remote_docker
+      - checkout
       - docker/check:
           docker-username: DOCKERHUB_LOGIN
           docker-password: DOCKERHUB_PASSWORD
@@ -44,56 +28,23 @@ jobs:
       - docker/push:
           image: po92/test_repository
 
-  deploy:
-    docker:
-      - image: cimg/node:16.10
-    steps:
-      - setup_remote_docker
-      - heroku/install
-      - checkout
-      - run:
-          name: Heroku Container Push
-          command: |
-              heroku container:login
-              heroku stack:set container -a shennan-su-devops
-              heroku container:push web -a shennan-su-devops
-              heroku container:release web -a shennan-su-devops
-
 workflows:
   ci_workflow:
     jobs:
-      - build:
-          filters:
-            branches:
-              only: main
       - test:
-          requires:
-            - build
           filters:
             branches:
               only: main
 
   full_ci_cd_workflow:
     jobs:
-      - build:
-          filters:
-            branches:
-              only: release
       - test:
-          requires:
-            - build
           filters:
             branches:
               only: release
-      - publish:
+      - build-and-push:
           requires:
             - test
-          filters:
-            branches:
-              only: release
-      - deploy:
-          requires:
-            - publish
           filters:
             branches:
               only: release
