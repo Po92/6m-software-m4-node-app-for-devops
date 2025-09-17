@@ -2,7 +2,7 @@ const targetFn = require("./controller");
 
 describe("the print function", () => {
 
-    // standard best practice
+    // standard best practice s
     beforeEach(() => {
         jest.clearAllMocks();
     })
