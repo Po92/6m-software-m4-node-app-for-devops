@@ -40,25 +40,11 @@ jobs:
           docker-username: DOCKERHUB_LOGIN
           docker-password: DOCKERHUB_PASSWORD
       - docker/build:
-          image: wongshennan/test_repository
+          image: po92/test_repository
       - docker/push:
-          image: wongshennan/test_repository
+          image: po92/test_repository
 
-  deploy:
-    docker:
-      - image: cimg/node:16.10
-    steps:
-      - setup_remote_docker
-      - heroku/install
-      - checkout
-      - run:
-          name: Heroku Container Push
-          command: |
-              heroku container:login
-              heroku stack:set container -a shennan-su-devops
-              heroku container:push web -a shennan-su-devops
-              heroku container:release web -a shennan-su-devops
-
+ 
 workflows:
   ci_workflow:
     jobs:
